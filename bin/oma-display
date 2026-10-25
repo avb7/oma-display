@@ -1,15 +1,15 @@
 #!/bin/bash
-# display-arrange — helper for the avb7.display-arrange Omarchy shell plugin.
+# oma-display — helper for the avb7.oma-display Omarchy shell plugin.
 #
-#   display-arrange state              print `hyprctl monitors all -j`
-#   display-arrange brightness         print {"<monitor>": percent|-1, ...}
-#   display-arrange brightness M N     set monitor M to N% (backlight or DDC/CI)
-#   display-arrange apply '<json>'     write the managed block into
+#   oma-display state              print `hyprctl monitors all -j`
+#   oma-display brightness         print {"<monitor>": percent|-1, ...}
+#   oma-display brightness M N     set monitor M to N% (backlight or DDC/CI)
+#   oma-display apply '<json>'     write the managed block into
 #                                      ~/.config/hypr/monitors.lua and reload
-#   display-arrange revert             restore monitors.lua from the backup made
+#   oma-display revert             restore monitors.lua from the backup made
 #                                      by the last apply, then reload
-#   display-arrange clear              remove the managed block, then reload
-#   display-arrange print '<json>'     print the Lua block without writing it
+#   oma-display clear              remove the managed block, then reload
+#   oma-display print '<json>'     print the Lua block without writing it
 #
 # <json> is an array of:
 #   { "output": "eDP-1" | "desc:<description>", "disabled": false,
@@ -21,14 +21,14 @@
 
 set -euo pipefail
 
-MONITOR_LUA="${DISPLAY_ARRANGE_MONITOR_LUA:-$HOME/.config/hypr/monitors.lua}"
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/display-arrange"
+MONITOR_LUA="${OMA_DISPLAY_MONITOR_LUA:-$HOME/.config/hypr/monitors.lua}"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/oma-display"
 BACKUP="$STATE_DIR/monitors.lua.prev"
 INTERNAL_FLAG="$HOME/.local/state/omarchy/toggles/hypr/internal-monitor-disable.lua"
-BEGIN_MARK="-- >>> display-arrange (managed by the avb7.display-arrange plugin; edits here are overwritten) >>>"
-END_MARK="-- <<< display-arrange <<<"
+BEGIN_MARK="-- >>> oma-display (managed by the avb7.oma-display plugin; edits here are overwritten) >>>"
+END_MARK="-- <<< oma-display <<<"
 
-fail() { echo "display-arrange: $*" >&2; exit 1; }
+fail() { echo "oma-display: $*" >&2; exit 1; }
 
 # Build the Lua block from validated JSON. Every value that reaches Lua is
 # either a checked number or a string that passed a strict allowlist and is
@@ -115,8 +115,8 @@ case "$cmd" in
     hyprctl monitors all -j
     ;;
   brightness)
-    # display-arrange brightness            -> {"eDP-1":27,"HDMI-A-1":80,"DP-3":-1}
-    # display-arrange brightness <mon> <N>  -> set N% (1-100) on <mon>
+    # oma-display brightness            -> {"eDP-1":27,"HDMI-A-1":80,"DP-3":-1}
+    # oma-display brightness <mon> <N>  -> set N% (1-100) on <mon>
     if (( $# >= 3 )); then
       mon="$2" pct="$3"
       [[ $mon =~ ^[A-Za-z0-9._-]{1,64}$ ]] || fail "bad monitor name"

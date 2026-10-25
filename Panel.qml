@@ -7,16 +7,16 @@ import qs.Commons as Commons
 import qs.Ui
 import "Model.js" as Model
 
-// Display Arrange — drag monitors into place, pick mode / scale / rotation,
+// Oma Display — drag monitors into place, pick mode / scale / rotation,
 // then Apply. Apply writes a managed block into ~/.config/hypr/monitors.lua
-// (via bin/display-arrange) and reloads Hyprland, then asks you to keep the
+// (via bin/oma-display) and reloads Hyprland, then asks you to keep the
 // layout; if you don't confirm within 15 s it reverts automatically.
 Panel {
   id: root
-  moduleName: "avb7.display-arrange"
-  ipcTarget: "avb7.display-arrange"
+  moduleName: "avb7.oma-display"
+  ipcTarget: "avb7.oma-display"
 
-  readonly property string script: decodeURIComponent(String(Qt.resolvedUrl("bin/display-arrange")).replace(/^(file|qs):\/\//, ""))
+  readonly property string script: decodeURIComponent(String(Qt.resolvedUrl("bin/oma-display")).replace(/^(file|qs):\/\//, ""))
   readonly property int confirmSeconds: 15
 
   property var live: []        // what Hyprland reports
@@ -190,7 +190,7 @@ Panel {
   onOpenedChanged: if (opened) { if (root.countdown === 0) refresh(); refreshBrightness() }
 
   IpcHandler {
-    target: "avb7.display-arrange-cli"
+    target: "avb7.oma-display-cli"
     function state(): string { return JSON.stringify({ live: Model.payload(root.live), draft: Model.payload(root.draft), dirty: root.dirty }) }
     function keep() { root.keep() }
     function revert() { root.revert() }
@@ -310,7 +310,7 @@ Panel {
 
         PanelHero {
           width: parent.width
-          title: "Arrange Displays"
+          title: "Displays"
           meta: root.countdown > 0 ? "KEEP THIS LAYOUT?"
             : root.dirty ? "UNSAVED CHANGES"
             : Model.enabled(root.live).length + " ACTIVE"

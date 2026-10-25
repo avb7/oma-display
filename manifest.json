@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
-  "id": "avb7.display-arrange",
-  "name": "Display Arrange",
-  "version": "0.2.0",
+  "id": "avb7.oma-display",
+  "name": "oma-display",
+  "version": "1.0.0",
   "author": "Aditya Bhatnagar",
   "license": "MIT",
   "description": "Per-display arrangement, brightness, resolution, scale and rotation, plus global text size. Replaces the stock Display widget",
   "kinds": ["bar-widget"],
   "entryPoints": { "barWidget": "Panel.qml" },
   "barWidget": {
-    "displayName": "Display Arrange",
-    "description": "Arrange monitors, set mode, scale and rotation",
+    "displayName": "Oma Display",
+    "description": "Arrange monitors; brightness, mode, scale, rotation and text size",
     "category": "System",
     "allowMultiple": false,
     "defaultSection": "right"

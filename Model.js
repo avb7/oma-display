@@ -1,5 +1,5 @@
 .pragma library
-// Pure layout helpers for the display-arrange panel. No QML imports, so this
+// Pure layout helpers for the oma-display panel. No QML imports, so this
 // file is unit-testable with plain node (see test/model.test.js).
 
 function isInternal(name) {

@@ -1,4 +1,4 @@
-# Display Arrange
+# oma-display
 
 An Omarchy (Quattro) shell plugin for arranging monitors. It works like the
 macOS / GNOME *Displays* screen, inside your bar.
@@ -27,10 +27,10 @@ display is connected. Live-only changes get undone, so this plugin persists
 them. Everything it writes sits between these markers:
 
 ```lua
--- >>> display-arrange (managed by ...) >>>
+-- >>> oma-display (managed by ...) >>>
 hl.monitor({ output = "eDP-1", mode = "3840x2400@60.00", position = "0x0", scale = 2, transform = 0 })
 hl.monitor({ output = "desc:JHW Z34B 0000000000001", mode = "3440x1440@75.00", position = "1920x0", scale = 1, transform = 0 })
--- <<< display-arrange <<<
+-- <<< oma-display <<<
 ```
 
 The rest of the file is left untouched. The block goes at the end, so it
@@ -42,26 +42,36 @@ clamshell logic looks it up by name.
 ## Install
 
 ```sh
-omarchy plugin add https://github.com/avb7/omarchy-display-arrange.git --enable
+omarchy plugin add https://github.com/avb7/oma-display.git --enable
 # or from a local checkout:
-omarchy plugin add ~/plugins/display-arrange --enable --yes
+omarchy plugin add ~/plugins/oma-display --enable --yes
 ```
 
-## Replacing the stock Display widget
+## Replacing the stock Display widget (optional)
 
-The stock widget is taken off the bar (still installed). `SUPER+CTRL+D` is
-rebound in `~/.config/hypr/bindings.lua` to open this panel. Undo with:
+oma-display covers everything the stock `omarchy.monitor` panel does. To
+use it instead:
 
 ```sh
-omarchy bar put omarchy.monitor --after omarchy.audio
+# take the stock widget off the bar (it stays installed)
+omarchy plugin disable omarchy.monitor
 ```
+
+Point `SUPER+CTRL+D` at oma-display by adding this to `~/.config/hypr/bindings.lua`:
+
+```lua
+hl.unbind("SUPER + CTRL + D")
+o.bind("SUPER + CTRL + D", "Display", "omarchy-shell shell toggle avb7.oma-display '{}'")
+```
+
+To undo: `omarchy plugin enable omarchy.monitor`, then remove those two lines.
 
 ## Usage
 
 Click the 󰍺 bar icon. Alternatively:
 
 ```sh
-omarchy-shell shell toggle avb7.display-arrange '{}'
+omarchy-shell shell toggle avb7.oma-display '{}'
 ```
 
 Keys: `Tab` selects the next display. The arrow keys / `hjkl` dock the
@@ -70,17 +80,17 @@ the countdown). `Esc` closes.
 
 ## CLI helper
 
-`bin/display-arrange` is the only part that touches the system:
+`bin/oma-display` is the only part that touches the system:
 
 ```sh
-bin/display-arrange state            # hyprctl monitors all -j
-bin/display-arrange print '<json>'   # preview the Lua block
-bin/display-arrange apply '<json>'   # write + reload (auto-restores on config errors)
-bin/display-arrange revert           # restore monitors.lua from before the last apply
-bin/display-arrange clear            # remove the managed block
+bin/oma-display state            # hyprctl monitors all -j
+bin/oma-display print '<json>'   # preview the Lua block
+bin/oma-display apply '<json>'   # write + reload (auto-restores on config errors)
+bin/oma-display revert           # restore monitors.lua from before the last apply
+bin/oma-display clear            # remove the managed block
 ```
 
-Backups: `~/.local/state/display-arrange/` (last 10 versions).
+Backups: `~/.local/state/oma-display/` (last 10 versions).
 
 Security: every value that reaches Lua is validated. Outputs must match
 `^[A-Za-z0-9._-]+$` or `desc:<printable>` and are then escaped, and numbers
@@ -92,7 +102,7 @@ your Hyprland config. No sudo, no network.
 From a TTY (`Ctrl+Alt+F3`):
 
 ```sh
-~/.config/omarchy/plugins/avb7.display-arrange/bin/display-arrange clear
+~/.config/omarchy/plugins/avb7.oma-display/bin/oma-display clear
 ```
 
 ## Tests
@@ -104,8 +114,8 @@ node test/model.test.js
 ## Remove
 
 ```sh
-omarchy plugin remove avb7.display-arrange
+omarchy plugin remove avb7.oma-display
 ```
 
-This leaves your last applied block in `monitors.lua`; run `display-arrange
+This leaves your last applied block in `monitors.lua`; run `oma-display
 clear` first to drop it.
