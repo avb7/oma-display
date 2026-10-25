@@ -278,7 +278,7 @@ Panel {
     open: root.opened
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(460))
-    contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(640))
+    contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(820))
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -290,9 +290,22 @@ Panel {
         if (root.draft.length) root.selected = (root.selected + direction + root.draft.length) % root.draft.length
       }
 
+      ScrollView {
+        id: scrollArea
+        anchors.fill: parent
+        clip: true
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+        ScrollBar.vertical.policy: column.implicitHeight > height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+        // Don't let the flickable steal canvas drags unless we actually overflow.
+        Binding {
+          target: scrollArea.contentItem
+          property: "interactive"
+          value: column.implicitHeight > scrollArea.height
+        }
+
       Column {
         id: column
-        width: parent.width
+        width: scrollArea.availableWidth
         spacing: Style.space(12)
 
         PanelHero {
@@ -671,6 +684,7 @@ Panel {
             onClicked: root.keep()
           }
         }
+      }
       }
     }
   }
