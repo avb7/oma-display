@@ -100,8 +100,8 @@ Panel {
   IpcHandler {
     target: "avb7.display-arrange-cli"
     function state(): string { return JSON.stringify({ live: Model.payload(root.live), draft: Model.payload(root.draft), dirty: root.dirty }) }
-    function keep(): void { root.keep() }
-    function revert(): void { root.revert() }
+    function keep() { root.keep() }
+    function revert() { root.revert() }
   }
 
   Process {
