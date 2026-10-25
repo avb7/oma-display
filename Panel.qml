@@ -231,9 +231,16 @@ Panel {
               readonly property var size: Model.logicalSize(modelData)
               readonly property bool isSel: root.selected === index
 
+              // Drag is tracked as an offset from the bound position, so the
+              // binding never breaks and the drop point is always known.
+              property real dx: 0
+              property real dy: 0
+              readonly property real baseX: canvas.ox + modelData.x * canvas.k
+              readonly property real baseY: canvas.oy + modelData.y * canvas.k
+
               visible: !modelData.disabled
-              x: drag.active ? x : canvas.ox + modelData.x * canvas.k
-              y: drag.active ? y : canvas.oy + modelData.y * canvas.k
+              x: baseX + dx
+              y: baseY + dy
               width: Math.max(8, size.w * canvas.k)
               height: Math.max(8, size.h * canvas.k)
               radius: Math.max(2, Style.cornerRadius)
@@ -277,18 +284,36 @@ Panel {
 
               MouseArea {
                 id: drag
-                readonly property bool active: drag.drag.active
+                property bool active: false
+                property real startX: 0
+                property real startY: 0
                 anchors.fill: parent
+                preventStealing: true
                 cursorShape: active ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-                drag.target: tile
-                drag.threshold: 3
-                onPressed: root.selected = tile.index
+                onPressed: function(mouse) {
+                  root.selected = tile.index
+                  var p = mapToItem(canvas, mouse.x, mouse.y)
+                  startX = p.x; startY = p.y
+                  active = false
+                }
+                onPositionChanged: function(mouse) {
+                  var p = mapToItem(canvas, mouse.x, mouse.y)
+                  var ddx = p.x - startX, ddy = p.y - startY
+                  if (!active && Math.abs(ddx) + Math.abs(ddy) < 4) return
+                  active = true
+                  tile.dx = ddx; tile.dy = ddy
+                }
                 onReleased: {
-                  if (!drag.drag.active && Math.abs(tile.x - (canvas.ox + tile.modelData.x * canvas.k)) < 1) return
+                  var wasDrag = active
                   var lx = (tile.x - canvas.ox) / canvas.k
                   var ly = (tile.y - canvas.oy) / canvas.k
-                  root.setDraft(Model.moveTo(root.draft, tile.index, lx, ly))
+                  // Re-enable the x/y Behavior first so the tile glides from
+                  // the drop point into its snapped slot.
+                  active = false
+                  tile.dx = 0; tile.dy = 0
+                  if (wasDrag) root.setDraft(Model.moveTo(root.draft, tile.index, lx, ly))
                 }
+                onCanceled: { active = false; tile.dx = 0; tile.dy = 0 }
               }
             }
           }

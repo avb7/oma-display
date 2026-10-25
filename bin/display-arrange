@@ -22,6 +22,7 @@ set -euo pipefail
 MONITOR_LUA="${DISPLAY_ARRANGE_MONITOR_LUA:-$HOME/.config/hypr/monitors.lua}"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/display-arrange"
 BACKUP="$STATE_DIR/monitors.lua.prev"
+INTERNAL_FLAG="$HOME/.local/state/omarchy/toggles/hypr/internal-monitor-disable.lua"
 BEGIN_MARK="-- >>> display-arrange (managed by the avb7.display-arrange plugin; edits here are overwritten) >>>"
 END_MARK="-- <<< display-arrange <<<"
 
@@ -116,13 +117,26 @@ case "$cmd" in
     ;;
   apply)
     [[ -f $MONITOR_LUA ]] || fail "$MONITOR_LUA not found"
-    block=$(render_block "${2:?payload required}") || fail "refusing invalid payload"
+    payload="${2:?payload required}"
+    # The laptop panel's on/off goes through Omarchy's own toggle, not a
+    # `disabled = true` rule: the clamshell watcher would otherwise see no
+    # active internal scale and re-enable the panel within ~2s.
+    internal_off=$(printf '%s\n' "$payload" | jq -r '[.[] | select((.output // "" | test("^(eDP|LVDS|DSI)-")) and .disabled == true) | .output][0] // ""')
+    block=$(printf '%s\n' "$payload" | jq -c '[.[] | select(((.output // "" | test("^(eDP|LVDS|DSI)-")) and .disabled == true) | not)]' \
+      | { read -r p; render_block "$p"; }) || fail "refusing invalid payload"
     backup
     write_with_block "$block"
     if ! reload_and_check; then
       cp -f "$BACKUP" "$MONITOR_LUA"
       hyprctl reload >/dev/null 2>&1 || true
       fail "Hyprland rejected the layout; monitors.lua restored"
+    fi
+    if command -v omarchy-hyprland-monitor-internal >/dev/null; then
+      if [[ -n $internal_off ]]; then
+        omarchy-hyprland-monitor-internal off >/dev/null 2>&1 || true
+      elif [[ -f $INTERNAL_FLAG ]]; then
+        omarchy-hyprland-monitor-internal on >/dev/null 2>&1 || true
+      fi
     fi
     echo ok
     ;;
