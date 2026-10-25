@@ -2,12 +2,16 @@
   "schemaVersion": 1,
   "id": "avb7.oma-display",
   "name": "oma-display",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Aditya Bhatnagar",
   "license": "MIT",
   "description": "Drag-and-drop monitor arrangement, like macOS and GNOME Displays. Screens snap edge to edge with no gaps or overlaps, and the layout follows each screen across ports and docks. Also adds what the stock Display widget is missing: per-display resolution, refresh rate and rotation, saved so they survive reloads, with a 15-second auto-revert if a change goes wrong.",
-  "kinds": ["bar-widget"],
-  "entryPoints": { "barWidget": "Panel.qml" },
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
   "barWidget": {
     "displayName": "Oma Display",
     "description": "Drag monitors into place; per-display resolution, scale, rotation and brightness",

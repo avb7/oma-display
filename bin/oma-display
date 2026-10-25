@@ -27,6 +27,11 @@ BACKUP="$STATE_DIR/monitors.lua.prev"
 INTERNAL_FLAG="$HOME/.local/state/omarchy/toggles/hypr/internal-monitor-disable.lua"
 BEGIN_MARK="-- >>> oma-display (managed by the avb7.oma-display plugin; edits here are overwritten) >>>"
 END_MARK="-- <<< oma-display <<<"
+# Before v1.0.0 the plugin was avb7.display-arrange and wrote its block under
+# these markers. apply and clear remove that block too, so an old layout can't
+# sit next to the new one (or survive a clear).
+LEGACY_BEGIN_MARK="-- >>> display-arrange (managed by the avb7.display-arrange plugin; edits here are overwritten) >>>"
+LEGACY_END_MARK="-- <<< display-arrange <<<"
 
 fail() { echo "oma-display: $*" >&2; exit 1; }
 
@@ -68,12 +73,22 @@ render_block() {
 }
 
 strip_block() {
-  # Print monitors.lua without any existing managed block.
-  awk -v b="$BEGIN_MARK" -v e="$END_MARK" '
-    $0 == b { skip = 1; next }
-    $0 == e { skip = 0; next }
+  # Print monitors.lua without any managed block, current or legacy.
+  awk -v b="$BEGIN_MARK" -v e="$END_MARK" -v lb="$LEGACY_BEGIN_MARK" -v le="$LEGACY_END_MARK" '
+    $0 == b || $0 == lb { skip = 1; next }
+    $0 == e || $0 == le { skip = 0; next }
     !skip { print }
   ' "$MONITOR_LUA"
+}
+
+check_blocks() {
+  # A start marker without its end marker would make strip_block drop the
+  # rest of the file, so refuse to rewrite it.
+  awk -v b="$BEGIN_MARK" -v e="$END_MARK" -v lb="$LEGACY_BEGIN_MARK" -v le="$LEGACY_END_MARK" '
+    $0 == b || $0 == lb { if (open) bad = 1; open = 1; next }
+    $0 == e || $0 == le { if (!open) bad = 1; open = 0; next }
+    END { exit (bad || open) ? 1 : 0 }
+  ' "$MONITOR_LUA" || fail "$MONITOR_LUA has a managed block with a missing start or end marker; fix it by hand"
 }
 
 reload_and_check() {
@@ -89,6 +104,7 @@ reload_and_check() {
 
 write_with_block() {
   local block="$1" tmp
+  check_blocks
   tmp=$(mktemp "$MONITOR_LUA.XXXXXX")
   {
     # Drop trailing blank lines so repeated applies don't grow the file.
@@ -146,6 +162,7 @@ case "$cmd" in
     internal_off=$(printf '%s\n' "$payload" | jq -r '[.[] | select((.output // "" | test("^(eDP|LVDS|DSI)-")) and .disabled == true) | .output][0] // ""')
     block=$(printf '%s\n' "$payload" | jq -c '[.[] | select(((.output // "" | test("^(eDP|LVDS|DSI)-")) and .disabled == true) | not)]' \
       | { read -r p; render_block "$p"; }) || fail "refusing invalid payload"
+    check_blocks
     backup
     write_with_block "$block"
     if ! reload_and_check; then
@@ -169,6 +186,8 @@ case "$cmd" in
     echo ok
     ;;
   clear)
+    [[ -f $MONITOR_LUA ]] || fail "$MONITOR_LUA not found"
+    check_blocks
     backup
     write_with_block ""
     reload_and_check || true

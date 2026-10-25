@@ -57,6 +57,17 @@ omarchy plugin add https://github.com/avb7/oma-display.git --enable
 omarchy plugin add ~/plugins/oma-display --enable --yes
 ```
 
+### Upgrading from display-arrange
+
+Before 1.0.0 this plugin was called `avb7.display-arrange`. Its layout block in
+`monitors.lua` (between `display-arrange` markers) is replaced the next time
+you **Apply**, and removed by `oma-display clear`, so you won't end up with two
+blocks. Remove the old plugin so only one widget writes the file:
+
+```sh
+omarchy plugin remove avb7.display-arrange
+```
+
 ## Replacing the stock Display widget (optional)
 
 oma-display covers everything the stock `omarchy.monitor` panel does. To
@@ -100,6 +111,9 @@ bin/oma-display revert           # restore monitors.lua from before the last app
 bin/oma-display clear            # remove the managed block
 ```
 
+`apply` and `clear` refuse to touch `monitors.lua` if a managed block is
+missing its start or end marker, rather than guess where it ends.
+
 Backups: `~/.local/state/oma-display/` (last 10 versions).
 
 Security: every value that reaches Lua is validated. Outputs must match
@@ -118,7 +132,8 @@ From a TTY (`Ctrl+Alt+F3`):
 ## Tests
 
 ```sh
-node test/model.test.js
+node test/model.test.js   # layout logic
+bash test/cli.test.sh     # apply/clear on a scratch monitors.lua (Hyprland stubbed)
 ```
 
 ## Remove
