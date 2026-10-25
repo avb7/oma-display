@@ -3,6 +3,10 @@
 An Omarchy (Quattro) shell plugin for arranging monitors. It works like the
 macOS / GNOME *Displays* screen, inside your bar.
 
+<p align="center">
+  <img src="screenshot.png" alt="oma-display panel: two monitors on the arrangement canvas, with resolution, scale, rotation, brightness and text size controls" width="460">
+</p>
+
 - **Drag** displays on a canvas. They snap flush to a neighbour's edge
   (start / centre / end alignment), and overlaps are impossible.
 - Per display: **on/off**, **brightness** (laptop backlight or DDC/CI on
@@ -38,6 +42,12 @@ overrides Omarchy's catch-all `output = ""` rule. External displays are keyed
 by EDID description (`desc:`), so the layout follows the screen across ports
 and docks. The internal panel is keyed by connector, because Omarchy's
 clamshell logic looks it up by name.
+
+## Requirements
+
+Omarchy Quattro. No extra packages: it uses `hyprctl`, `jq` and
+`omarchy-brightness-display` (which uses `ddcutil` for external monitors), all
+of which ship with Omarchy.
 
 ## Install
 

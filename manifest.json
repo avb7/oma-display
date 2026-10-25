@@ -5,12 +5,12 @@
   "version": "1.0.0",
   "author": "Aditya Bhatnagar",
   "license": "MIT",
-  "description": "Per-display arrangement, brightness, resolution, scale and rotation, plus global text size. Replaces the stock Display widget",
+  "description": "Drag-and-drop monitor arrangement, like macOS and GNOME Displays. Screens snap edge to edge with no gaps or overlaps, and the layout follows each screen across ports and docks. Also adds what the stock Display widget is missing: per-display resolution, refresh rate and rotation, saved so they survive reloads, with a 15-second auto-revert if a change goes wrong.",
   "kinds": ["bar-widget"],
   "entryPoints": { "barWidget": "Panel.qml" },
   "barWidget": {
     "displayName": "Oma Display",
-    "description": "Arrange monitors; brightness, mode, scale, rotation and text size",
+    "description": "Drag monitors into place; per-display resolution, scale, rotation and brightness",
     "category": "System",
     "allowMultiple": false,
     "defaultSection": "right"
