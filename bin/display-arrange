@@ -1,0 +1,145 @@
+#!/bin/bash
+# display-arrange — helper for the avb7.display-arrange Omarchy shell plugin.
+#
+#   display-arrange state              print `hyprctl monitors all -j`
+#   display-arrange apply '<json>'     write the managed block into
+#                                      ~/.config/hypr/monitors.lua and reload
+#   display-arrange revert             restore monitors.lua from the backup made
+#                                      by the last apply, then reload
+#   display-arrange clear              remove the managed block, then reload
+#   display-arrange print '<json>'     print the Lua block without writing it
+#
+# <json> is an array of:
+#   { "output": "eDP-1" | "desc:<description>", "disabled": false,
+#     "mode": "3840x2400@60.00", "x": 0, "y": 0, "scale": 2, "transform": 0 }
+#
+# Why persist instead of `hyprctl eval` only: Omarchy's monitor watcher
+# (omarchy-hyprland-monitor-clamshell) re-applies the internal panel's scale
+# from monitors.lua every 2s while docked, so live-only changes get undone.
+
+set -euo pipefail
+
+MONITOR_LUA="${DISPLAY_ARRANGE_MONITOR_LUA:-$HOME/.config/hypr/monitors.lua}"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/display-arrange"
+BACKUP="$STATE_DIR/monitors.lua.prev"
+BEGIN_MARK="-- >>> display-arrange (managed by the avb7.display-arrange plugin; edits here are overwritten) >>>"
+END_MARK="-- <<< display-arrange <<<"
+
+fail() { echo "display-arrange: $*" >&2; exit 1; }
+
+# Build the Lua block from validated JSON. Every value that reaches Lua is
+# either a checked number or a string that passed a strict allowlist and is
+# then quoted with escaping, so a crafted monitor description cannot inject
+# code into the config Hyprland executes.
+render_block() {
+  local json="$1"
+  printf '%s\n' "$json" | jq -er --arg begin "$BEGIN_MARK" --arg end "$END_MARK" '
+    def bad($m): error("invalid payload: " + $m);
+    def luastr: gsub("\\\\"; "\\\\\\\\") | gsub("\""; "\\\"");
+    def num($k): if (.[$k] | type) == "number" then .[$k] else bad($k + " must be a number") end;
+    def int($k): num($k) | if . == floor then . else bad($k + " must be an integer") end;
+
+    if type != "array" or length == 0 then bad("expected non-empty array") else . end
+    | [ .[] |
+        (.output // "" | tostring) as $out
+        | if ($out | test("^(desc:[[:print:]]{1,160}|[A-Za-z0-9._-]{1,64})$")) | not
+          then bad("output " + ($out | @json)) else . end
+        | if .disabled == true then
+            "hl.monitor({ output = \"" + ($out | luastr) + "\", disabled = true })"
+          else
+            (.mode // "" | tostring) as $mode
+            | if ($mode | test("^[0-9]{2,5}x[0-9]{2,5}(@[0-9]{1,3}(\\.[0-9]{1,3})?)?$")) | not
+              then bad("mode " + ($mode | @json)) else . end
+            | (int("x")) as $x | (int("y")) as $y
+            | (num("scale")) as $s
+            | if $s < 0.25 or $s > 8 then bad("scale out of range") else . end
+            | (int("transform")) as $t
+            | if $t < 0 or $t > 7 then bad("transform out of range") else . end
+            | "hl.monitor({ output = \"" + ($out | luastr) + "\", mode = \"" + $mode
+              + "\", position = \"" + ($x | tostring) + "x" + ($y | tostring)
+              + "\", scale = " + ($s | tostring) + ", transform = " + ($t | tostring) + " })"
+          end
+      ]
+    | ([$begin] + . + [$end]) | join("\n")
+  '
+}
+
+strip_block() {
+  # Print monitors.lua without any existing managed block.
+  awk -v b="$BEGIN_MARK" -v e="$END_MARK" '
+    $0 == b { skip = 1; next }
+    $0 == e { skip = 0; next }
+    !skip { print }
+  ' "$MONITOR_LUA"
+}
+
+reload_and_check() {
+  hyprctl reload >/dev/null 2>&1 || true
+  sleep 0.3
+  local errs
+  errs=$(hyprctl configerrors 2>/dev/null | sed '/^[[:space:]]*$/d' || true)
+  if [[ -n $errs ]]; then
+    printf '%s\n' "$errs" >&2
+    return 1
+  fi
+}
+
+write_with_block() {
+  local block="$1" tmp
+  tmp=$(mktemp "$MONITOR_LUA.XXXXXX")
+  {
+    # Drop trailing blank lines so repeated applies don't grow the file.
+    strip_block | sed -e ':a' -e '/^\n*$/{$d;N;ba' -e '}'
+    if [[ -n $block ]]; then
+      printf '\n%s\n' "$block"
+    fi
+  } >"$tmp"
+  chmod --reference="$MONITOR_LUA" "$tmp" 2>/dev/null || true
+  mv -f "$tmp" "$MONITOR_LUA"
+}
+
+backup() {
+  mkdir -p "$STATE_DIR"
+  cp -f "$MONITOR_LUA" "$BACKUP"
+  # Rolling history of the last 10 configs, in case a revert itself is wrong.
+  cp -f "$MONITOR_LUA" "$STATE_DIR/monitors.lua.$(date +%Y%m%d-%H%M%S)"
+  ls -1t "$STATE_DIR"/monitors.lua.2* 2>/dev/null | tail -n +11 | xargs -r rm -f
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  state)
+    hyprctl monitors all -j
+    ;;
+  print)
+    render_block "${2:?payload required}"
+    ;;
+  apply)
+    [[ -f $MONITOR_LUA ]] || fail "$MONITOR_LUA not found"
+    block=$(render_block "${2:?payload required}") || fail "refusing invalid payload"
+    backup
+    write_with_block "$block"
+    if ! reload_and_check; then
+      cp -f "$BACKUP" "$MONITOR_LUA"
+      hyprctl reload >/dev/null 2>&1 || true
+      fail "Hyprland rejected the layout; monitors.lua restored"
+    fi
+    echo ok
+    ;;
+  revert)
+    [[ -f $BACKUP ]] || fail "no backup to revert to"
+    cp -f "$BACKUP" "$MONITOR_LUA"
+    reload_and_check || true
+    echo ok
+    ;;
+  clear)
+    backup
+    write_with_block ""
+    reload_and_check || true
+    echo ok
+    ;;
+  *)
+    sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+    [[ -z $cmd ]] && exit 0 || exit 2
+    ;;
+esac
