@@ -507,40 +507,6 @@ Panel {
             spacing: Style.space(10)
             visible: root.sel !== null && !root.sel.disabled
 
-            // Brightness is live (no Apply needed), like the stock panel.
-            Column {
-              width: parent.width
-              spacing: Style.space(6)
-              readonly property int pct: root.sel ? root.brightnessOf(root.sel.name) : -1
-
-              Item {
-                width: parent.width
-                implicitHeight: brightHeader.implicitHeight
-                PanelSectionHeader { id: brightHeader; text: "BRIGHTNESS"; foreground: root.fg; fontFamily: root.ff }
-                Text {
-                  anchors.right: parent.right
-                  anchors.verticalCenter: parent.verticalCenter
-                  textFormat: Text.PlainText
-                  text: parent.parent.pct < 0 ? "not adjustable"
-                    : Math.round(brightSlider.dragging ? brightSlider.liveValue : parent.parent.pct) + "%"
-                  color: root.dim; font.family: root.ff; font.pixelSize: Style.font.caption; font.bold: true
-                }
-              }
-
-              PanelSlider {
-                id: brightSlider
-                width: parent.width
-                visible: parent.pct >= 0
-                bar: root.bar
-                minimum: 1
-                maximum: 100
-                step: 1
-                integer: true
-                value: Math.max(1, parent.pct)
-                onMoved: function(v) { if (root.sel) root.setBrightness(root.sel.name, v) }
-                onReleased: function(v) { if (root.sel) root.setBrightness(root.sel.name, v) }
-              }
-            }
             Dropdown {
               width: parent.width
               label: "Resolution & refresh"
@@ -594,36 +560,90 @@ Panel {
 
         PanelSeparator { foreground: root.fg }
 
-        // ---------- Text size (all displays) ----------
+        // ---------- Brightness & text ----------
         Column {
           width: parent.width
-          spacing: Style.space(6)
+          spacing: Style.space(10)
 
-          Item {
+          PanelSectionHeader { text: "BRIGHTNESS & TEXT"; foreground: root.fg; fontFamily: root.ff }
+
+          // Brightness: the selected display, applied live (no Apply needed).
+          Column {
             width: parent.width
-            implicitHeight: textHeader.implicitHeight
-            PanelSectionHeader { id: textHeader; text: "TEXT SIZE · ALL DISPLAYS"; foreground: root.fg; fontFamily: root.ff }
-            Text {
-              anchors.right: parent.right
-              anchors.verticalCenter: parent.verticalCenter
-              textFormat: Text.PlainText
-              text: (textSlider.dragging ? root.textSizeStops[Math.round(textSlider.liveValue)]
-                     : root.textSizeStops[root.textIndex()]) + "px"
-              color: root.dim; font.family: root.ff; font.pixelSize: Style.font.caption; font.bold: true
+            spacing: Style.space(6)
+            visible: root.sel !== null && !root.sel.disabled
+            readonly property int pct: root.sel ? root.brightnessOf(root.sel.name) : -1
+
+            Item {
+              width: parent.width
+              implicitHeight: brightLabel.implicitHeight
+              Text {
+                id: brightLabel
+                textFormat: Text.PlainText
+                text: "Brightness · " + (root.sel ? root.sel.name : "")
+                color: root.fg; font.family: root.ff; font.pixelSize: Style.font.caption
+              }
+              Text {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                textFormat: Text.PlainText
+                text: parent.parent.pct < 0 ? "not adjustable"
+                  : Math.round(brightSlider.dragging ? brightSlider.liveValue : parent.parent.pct) + "%"
+                color: root.dim; font.family: root.ff; font.pixelSize: Style.font.caption; font.bold: true
+              }
+            }
+
+            PanelSlider {
+              id: brightSlider
+              width: parent.width
+              visible: parent.pct >= 0
+              bar: root.bar
+              minimum: 1
+              maximum: 100
+              step: 1
+              integer: true
+              value: Math.max(1, parent.pct)
+              onMoved: function(v) { if (root.sel) root.setBrightness(root.sel.name, v) }
+              onReleased: function(v) { if (root.sel) root.setBrightness(root.sel.name, v) }
             }
           }
 
-          PanelSlider {
-            id: textSlider
+          // Text size: global (shell + GTK + terminals).
+          Column {
             width: parent.width
-            bar: root.bar
-            minimum: 0
-            maximum: root.textSizeStops.length - 1
-            step: 1
-            integer: true
-            tickCount: root.textSizeStops.length
-            value: root.textIndex()
-            onReleased: function(v) { root.setTextSize(v) }
+            spacing: Style.space(6)
+
+            Item {
+              width: parent.width
+              implicitHeight: textLabel.implicitHeight
+              Text {
+                id: textLabel
+                textFormat: Text.PlainText
+                text: "Text size · all displays"
+                color: root.fg; font.family: root.ff; font.pixelSize: Style.font.caption
+              }
+              Text {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                textFormat: Text.PlainText
+                text: (textSlider.dragging ? root.textSizeStops[Math.round(textSlider.liveValue)]
+                       : root.textSizeStops[root.textIndex()]) + "px"
+                color: root.dim; font.family: root.ff; font.pixelSize: Style.font.caption; font.bold: true
+              }
+            }
+
+            PanelSlider {
+              id: textSlider
+              width: parent.width
+              bar: root.bar
+              minimum: 0
+              maximum: root.textSizeStops.length - 1
+              step: 1
+              integer: true
+              tickCount: root.textSizeStops.length
+              value: root.textIndex()
+              onReleased: function(v) { root.setTextSize(v) }
+            }
           }
         }
 
