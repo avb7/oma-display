@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "avb7.display-arrange",
   "name": "Display Arrange",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "Aditya Bhatnagar",
   "license": "MIT",
-  "description": "Drag-and-drop monitor arrangement with resolution, scale and rotation, persisted to monitors.lua with auto-revert",
+  "description": "Per-display arrangement, brightness, resolution, scale and rotation, plus global text size. Replaces the stock Display widget",
   "kinds": ["bar-widget"],
   "entryPoints": { "barWidget": "Panel.qml" },
   "barWidget": {

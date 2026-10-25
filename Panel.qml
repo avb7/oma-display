@@ -94,8 +94,100 @@ Panel {
 
   function reset() { setDraft(Model.clone(root.live)); root.errorText = "" }
 
-  Component.onCompleted: refresh()
-  onOpenedChanged: if (opened && root.countdown === 0) refresh()
+  // ---- Brightness (per display, applied live like the stock panel) ----
+  property var brightness: ({})          // name -> percent, -1 = not controllable
+  property string pendingBrightName: ""
+  property int pendingBrightValue: -1
+  property real wheelAccumulator: 0
+
+  function brightnessOf(name) {
+    var v = root.brightness[name]
+    return v === undefined ? -1 : v
+  }
+
+  function focusedName() {
+    for (var i = 0; i < root.live.length; i++) if (root.live[i].focused) return root.live[i].name
+    return root.live.length ? root.live[0].name : ""
+  }
+
+  function setBrightness(name, value) {
+    var pct = Math.max(1, Math.min(100, Math.round(value)))
+    var map = Object.assign({}, root.brightness)
+    map[name] = pct
+    root.brightness = map
+    root.pendingBrightName = name
+    root.pendingBrightValue = pct
+    if (!brightSetProc.running) flushBrightness()
+  }
+
+  function flushBrightness() {
+    if (root.pendingBrightValue < 0) return
+    brightSetProc.command = [root.script, "brightness", root.pendingBrightName, String(root.pendingBrightValue)]
+    root.pendingBrightValue = -1
+    brightSetProc.running = true
+  }
+
+  function refreshBrightness() { if (!brightGetProc.running && !brightSetProc.running) brightGetProc.running = true }
+
+  Process {
+    id: brightGetProc
+    command: [root.script, "brightness"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try { root.brightness = JSON.parse(String(text || "{}")) } catch (e) {}
+      }
+    }
+  }
+
+  Process {
+    id: brightSetProc
+    stdout: StdioCollector { waitForEnd: true }
+    onRunningChanged: if (!running) root.flushBrightness()
+  }
+
+  Timer {
+    interval: 5000
+    repeat: true
+    running: root.opened
+    onTriggered: root.refreshBrightness()
+  }
+
+  // ---- Text size (global: shell + GTK + terminals, via Omarchy's CLI) ----
+  readonly property var textSizeStops: [9, 10, 11, 12, 14, 16, 20]
+  property int textPreviewIndex: -1
+
+  function nearestTextStop(px) {
+    var best = 0, d = 1e9
+    for (var i = 0; i < textSizeStops.length; i++) {
+      var x = Math.abs(textSizeStops[i] - px)
+      if (x < d) { d = x; best = i }
+    }
+    return best
+  }
+  function textIndex() { return textPreviewIndex >= 0 ? textPreviewIndex : nearestTextStop(Style.font.baseSize) }
+  function setTextSize(idx) {
+    idx = Math.max(0, Math.min(textSizeStops.length - 1, Math.round(idx)))
+    textPreviewIndex = idx
+    textProc.command = ["omarchy-display-text-size", String(textSizeStops[idx])]
+    if (!textProc.running) textProc.running = true
+  }
+
+  Process {
+    id: textProc
+    stdout: StdioCollector { waitForEnd: true }
+  }
+
+  Connections {
+    target: Style
+    function onFontBaseSizeChanged() {
+      if (root.textPreviewIndex >= 0 && root.nearestTextStop(Style.font.baseSize) === root.textPreviewIndex)
+        root.textPreviewIndex = -1
+    }
+  }
+
+  Component.onCompleted: { refresh(); refreshBrightness() }
+  onOpenedChanged: if (opened) { if (root.countdown === 0) refresh(); refreshBrightness() }
 
   IpcHandler {
     target: "avb7.display-arrange-cli"
@@ -162,6 +254,17 @@ Panel {
     bar: root.bar
     text: "󰍺"
     onPressed: function(b) { root.toggle() }
+    // Scroll on the bar icon: brightness of the focused display, with OSD.
+    onWheelMoved: function(delta) {
+      var name = root.focusedName()
+      if (root.brightnessOf(name) < 0) return
+      var wheel = Util.wheelSteps(root.wheelAccumulator, delta)
+      root.wheelAccumulator = wheel.remainder
+      if (wheel.steps === 0) return
+      root.setBrightness(name, root.brightnessOf(name) + wheel.steps * 5)
+      if (root.bar && root.bar.shell)
+        root.bar.shell.summon("omarchy.osd", JSON.stringify({ icon: "brightness", value: root.brightnessOf(name) }))
+    }
   }
 
   implicitWidth: button.implicitWidth
@@ -391,6 +494,40 @@ Panel {
             spacing: Style.space(10)
             visible: root.sel !== null && !root.sel.disabled
 
+            // Brightness is live (no Apply needed), like the stock panel.
+            Column {
+              width: parent.width
+              spacing: Style.space(6)
+              readonly property int pct: root.sel ? root.brightnessOf(root.sel.name) : -1
+
+              Item {
+                width: parent.width
+                implicitHeight: brightHeader.implicitHeight
+                PanelSectionHeader { id: brightHeader; text: "BRIGHTNESS"; foreground: root.fg; fontFamily: root.ff }
+                Text {
+                  anchors.right: parent.right
+                  anchors.verticalCenter: parent.verticalCenter
+                  textFormat: Text.PlainText
+                  text: parent.parent.pct < 0 ? "not adjustable"
+                    : Math.round(brightSlider.dragging ? brightSlider.liveValue : parent.parent.pct) + "%"
+                  color: root.dim; font.family: root.ff; font.pixelSize: Style.font.caption; font.bold: true
+                }
+              }
+
+              PanelSlider {
+                id: brightSlider
+                width: parent.width
+                visible: parent.pct >= 0
+                bar: root.bar
+                minimum: 1
+                maximum: 100
+                step: 1
+                integer: true
+                value: Math.max(1, parent.pct)
+                onMoved: function(v) { if (root.sel) root.setBrightness(root.sel.name, v) }
+                onReleased: function(v) { if (root.sel) root.setBrightness(root.sel.name, v) }
+              }
+            }
             Dropdown {
               width: parent.width
               label: "Resolution & refresh"
@@ -439,6 +576,41 @@ Panel {
                 }
               }
             }
+          }
+        }
+
+        PanelSeparator { foreground: root.fg }
+
+        // ---------- Text size (all displays) ----------
+        Column {
+          width: parent.width
+          spacing: Style.space(6)
+
+          Item {
+            width: parent.width
+            implicitHeight: textHeader.implicitHeight
+            PanelSectionHeader { id: textHeader; text: "TEXT SIZE · ALL DISPLAYS"; foreground: root.fg; fontFamily: root.ff }
+            Text {
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              textFormat: Text.PlainText
+              text: (textSlider.dragging ? root.textSizeStops[Math.round(textSlider.liveValue)]
+                     : root.textSizeStops[root.textIndex()]) + "px"
+              color: root.dim; font.family: root.ff; font.pixelSize: Style.font.caption; font.bold: true
+            }
+          }
+
+          PanelSlider {
+            id: textSlider
+            width: parent.width
+            bar: root.bar
+            minimum: 0
+            maximum: root.textSizeStops.length - 1
+            step: 1
+            integer: true
+            tickCount: root.textSizeStops.length
+            value: root.textIndex()
+            onReleased: function(v) { root.setTextSize(v) }
           }
         }
 

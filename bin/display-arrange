@@ -2,6 +2,8 @@
 # display-arrange — helper for the avb7.display-arrange Omarchy shell plugin.
 #
 #   display-arrange state              print `hyprctl monitors all -j`
+#   display-arrange brightness         print {"<monitor>": percent|-1, ...}
+#   display-arrange brightness M N     set monitor M to N% (backlight or DDC/CI)
 #   display-arrange apply '<json>'     write the managed block into
 #                                      ~/.config/hypr/monitors.lua and reload
 #   display-arrange revert             restore monitors.lua from the backup made
@@ -111,6 +113,26 @@ cmd="${1:-}"
 case "$cmd" in
   state)
     hyprctl monitors all -j
+    ;;
+  brightness)
+    # display-arrange brightness            -> {"eDP-1":27,"HDMI-A-1":80,"DP-3":-1}
+    # display-arrange brightness <mon> <N>  -> set N% (1-100) on <mon>
+    if (( $# >= 3 )); then
+      mon="$2" pct="$3"
+      [[ $mon =~ ^[A-Za-z0-9._-]{1,64}$ ]] || fail "bad monitor name"
+      [[ $pct =~ ^[0-9]{1,3}$ ]] && (( pct >= 1 && pct <= 100 )) || fail "bad percent"
+      omarchy-brightness-display --no-osd --monitor "$mon" "$pct%" >/dev/null
+      echo ok
+      exit 0
+    fi
+    out="{}"
+    while read -r mon; do
+      [[ $mon =~ ^[A-Za-z0-9._-]{1,64}$ ]] || continue
+      v=$(timeout 4 omarchy-brightness-display --monitor "$mon" 2>/dev/null | head -n1 | tr -dc '0-9')
+      [[ -n $v ]] || v=-1
+      out=$(jq -c --arg m "$mon" --argjson v "$v" '. + {($m): $v}' <<<"$out")
+    done < <(hyprctl monitors -j | jq -r '.[].name')
+    echo "$out"
     ;;
   print)
     render_block "${2:?payload required}"

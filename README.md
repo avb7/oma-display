@@ -5,8 +5,14 @@ macOS / GNOME *Displays* screen, inside your bar.
 
 - **Drag** displays on a canvas. They snap flush to a neighbour's edge
   (start / centre / end alignment), and overlaps are impossible.
-- Per display: **on/off**, **resolution & refresh**, **scale** (only
+- Per display: **on/off**, **brightness** (laptop backlight or DDC/CI on
+  externals, applied live), **resolution & refresh**, **scale** (only
   Hyprland-valid "clean" scales), **rotation**.
+- **Text size** (global): shell, GTK and terminal text together, via
+  `omarchy-display-text-size`. It is global because Hyprland/GTK have no
+  per-monitor font size; use per-display *scale* for that.
+- Scroll on the bar icon to change the focused display's brightness (with OSD).
+- Replaces the stock `omarchy.monitor` Display widget (see below).
 - **Apply** writes a managed block to `~/.config/hypr/monitors.lua` and
   reloads Hyprland. A **15 s Keep / Revert** countdown follows; if you don't
   confirm, the previous config is restored automatically.
@@ -39,6 +45,15 @@ clamshell logic looks it up by name.
 omarchy plugin add https://github.com/avb7/omarchy-display-arrange.git --enable
 # or from a local checkout:
 omarchy plugin add ~/plugins/display-arrange --enable --yes
+```
+
+## Replacing the stock Display widget
+
+The stock widget is taken off the bar (still installed). `SUPER+CTRL+D` is
+rebound in `~/.config/hypr/bindings.lua` to open this panel. Undo with:
+
+```sh
+omarchy bar put omarchy.monitor --after omarchy.audio
 ```
 
 ## Usage
